@@ -145,6 +145,8 @@
   .stat-btn.save  { background:rgba(176,127,255,.2);  color:var(--purple); border:1px solid rgba(176,127,255,.35);}
   .stat-btn.allow { background:rgba(224,53,53,.22);   color:#ff6060;       border:1px solid rgba(224,53,53,.35);  }
   .stat-btn.undo  { background:rgba(255,255,255,.07); color:var(--gray);   border:1px solid rgba(255,255,255,.1); }
+  .stat-btn.wide   { background:rgba(255,165,0,.18);    color:#ffb347;       border:1px solid rgba(255,165,0,.35);  }
+  .stat-btn.rebound{ background:rgba(0,200,255,.18);    color:#60dfff;       border:1px solid rgba(0,200,255,.35); }
 
   /* Goalie banner */
   .gk-banner { display:flex; align-items:center; gap:8px; background:rgba(176,127,255,.1); border:1px solid rgba(176,127,255,.25); border-radius:8px; padding:5px 12px; margin-top:7px; font-size:11px; color:var(--purple); font-weight:700; letter-spacing:.5px; }
@@ -265,6 +267,78 @@
   }
 
   /* Hidden in normal view, shown only when printing */
+
+  /* ── Possession Tracker ── */
+  .poss-bar {
+    display: flex; align-items: stretch; gap: 0;
+    background: var(--card2); border-radius: 14px; overflow: hidden;
+    margin-bottom: 14px; border: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  }
+  .poss-team {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 12px 10px; cursor: pointer;
+    transition: background .15s; position: relative; gap: 4px;
+    user-select: none; -webkit-user-select: none;
+  }
+  .poss-team.us   { border-right: 1px solid rgba(255,255,255,.07); }
+  .poss-team.active.us   { background: rgba(127,255,111,.15); }
+  .poss-team.active.them { background: rgba(224,53,53,.15); }
+  .poss-team:active { opacity: .8; }
+  .poss-team-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--gray);
+  }
+  .poss-team-time {
+    font-family: 'Bebas Neue', sans-serif; font-size: 30px; line-height: 1;
+    letter-spacing: 1px;
+  }
+  .poss-team.us   .poss-team-time { color: var(--accent); }
+  .poss-team.them .poss-team-time { color: #ff8080; }
+  .poss-team.active .poss-team-label { color: var(--white); }
+  .poss-active-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    animation: pulse 1s ease-in-out infinite;
+    display: none;
+  }
+  .poss-team.active.us   .poss-active-dot { display:block; background: var(--accent); }
+  .poss-team.active.them .poss-active-dot { display:block; background: #ff8080; }
+  @keyframes pulse {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.4); opacity: .5; }
+  }
+  .poss-middle {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 10px 12px; gap: 6px;
+    border-left: 1px solid rgba(255,255,255,.07);
+    border-right: 1px solid rgba(255,255,255,.07);
+  }
+  .poss-middle-label {
+    font-size: 9px; font-weight: 700; color: var(--gray);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .poss-pct-bar {
+    width: 80px; height: 6px; border-radius: 3px;
+    background: rgba(255,255,255,.1); overflow: hidden;
+  }
+  .poss-pct-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), #60dfff);
+    transition: width .5s ease;
+  }
+  .poss-pct-text {
+    font-family: 'Bebas Neue', sans-serif; font-size: 13px;
+    color: var(--white); letter-spacing: .5px; text-align: center;
+  }
+  .poss-none-btn {
+    width: 100%; background: transparent; border: none;
+    font-size: 10px; font-weight: 700; color: var(--gray);
+    cursor: pointer; padding: 6px; letter-spacing: .5px;
+    text-transform: uppercase; border-top: 1px solid rgba(255,255,255,.06);
+    font-family: 'DM Sans', sans-serif;
+  }
+  .poss-none-btn:active { color: var(--white); }
+
   #print-report { display:none; }
 
   /* ── PWA Install Banner ── */
@@ -323,6 +397,29 @@
         <button class="btn-clock stop"  onclick="stopClock()">⏸ Stop</button>
         <button class="btn-clock reset" onclick="resetClock()">↺ Reset</button>
       </div>
+    </div>
+  </div>
+
+
+  <!-- Possession Tracker -->
+  <div class="poss-bar" id="poss-bar">
+    <div class="poss-team us" id="poss-us" onclick="setPoss('us')">
+      <div class="poss-active-dot"></div>
+      <div class="poss-team-label">Our Ball</div>
+      <div class="poss-team-time" id="poss-us-time">00:00</div>
+    </div>
+    <div class="poss-middle">
+      <div class="poss-middle-label">Poss</div>
+      <div class="poss-pct-bar">
+        <div class="poss-pct-fill" id="poss-fill" style="width:50%"></div>
+      </div>
+      <div class="poss-pct-text" id="poss-pct">—</div>
+      <button class="poss-none-btn" onclick="setPoss(null)">Neither</button>
+    </div>
+    <div class="poss-team them" id="poss-them" onclick="setPoss('them')">
+      <div class="poss-active-dot"></div>
+      <div class="poss-team-label">Their Ball</div>
+      <div class="poss-team-time" id="poss-them-time">00:00</div>
     </div>
   </div>
 
@@ -415,6 +512,10 @@
       </button>
       <span style="font-size:11px;color:var(--gray);margin-left:auto;">CSV opens in Excel/Sheets &middot; PDF via print dialog</span>
     </div>
+    <div class="card" id="poss-summary-card">
+      <div class="card-title">⚽ Ball Possession</div>
+      <div id="poss-summary-content"></div>
+    </div>
     <div class="card">
       <div class="card-title">Team Totals</div>
       <div class="stats-grid" id="team-totals"></div>
@@ -457,6 +558,8 @@
               <th class="th-sep" style="color:var(--purple)">Saves</th>
               <th style="color:#ff8080">Allow</th>
               <th>Sv%</th>
+              <th class="th-sep" style="color:#ffb347">Wide</th>
+              <th style="color:#60dfff">Reb</th>
             </tr>
           </thead>
           <tbody id="stat-tbody"></tbody>
@@ -515,12 +618,15 @@
 // STATE
 // ═══════════════════════════════════════════════════════════════
 let state = JSON.parse(localStorage.getItem('laxv3') || 'null') || {
-  players: [], squads: [], nextPid: 1, nextSid: 1
+  players: [], squads: [], nextPid: 1, nextSid: 1,
+  poss: { us: 0, them: 0, current: null }
 };
+// Migrate possession if missing
+if (!state.poss) state.poss = { us: 0, them: 0, current: null };
 // Ensure all players have current fields (migration)
 state.players.forEach(p => {
   if (!p.stats) p.stats = {};
-  ['shots','goals','fo_w','fo_l','saves','allowed'].forEach(k => { if(p.stats[k]==null) p.stats[k]=0; });
+  ['shots','goals','fo_w','fo_l','saves','allowed','wide','rebound'].forEach(k => { if(p.stats[k]==null) p.stats[k]=0; });
   if (!p.posTime) p.posTime = {};
   ['attack','midfield','defense','goalie','bench'].forEach(k => { if(p.posTime[k]==null) p.posTime[k]=0; });
   if (p.activePos === undefined) p.activePos = null;
@@ -557,6 +663,12 @@ function startClock() {
     state.players.forEach(p => {
       if (p.activePos) { p.posTime[p.activePos]++; changed = true; }
     });
+    // Tick possession
+    if (state.poss.current) {
+      state.poss[state.poss.current]++;
+      changed = true;
+      updatePossUI();
+    }
     if (changed) { save(); tickChips(); }
   }, 1000);
 }
@@ -575,6 +687,43 @@ function tickChips() {
     if (el) el.innerHTML = buildChips(p);
   });
   if (document.getElementById('sec-summary').classList.contains('active')) renderSummary();
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// POSSESSION TRACKER
+// ═══════════════════════════════════════════════════════════════
+function setPoss(team) {
+  state.poss.current = team;
+  save(); updatePossUI();
+}
+
+function updatePossUI() {
+  const { us, them, current } = state.poss;
+  const total = us + them;
+
+  // Times
+  document.getElementById('poss-us-time').textContent   = fmt(us);
+  document.getElementById('poss-them-time').textContent = fmt(them);
+
+  // Active highlight
+  document.getElementById('poss-us').classList.toggle('active',   current === 'us');
+  document.getElementById('poss-them').classList.toggle('active', current === 'them');
+
+  // Percentage bar & text
+  if (total > 0) {
+    const usPct = Math.round(us / total * 100);
+    document.getElementById('poss-fill').style.width = usPct + '%';
+    document.getElementById('poss-pct').textContent  = usPct + '% / ' + (100 - usPct) + '%';
+  } else {
+    document.getElementById('poss-fill').style.width = '50%';
+    document.getElementById('poss-pct').textContent  = '—';
+  }
+}
+
+function resetPoss() {
+  state.poss = { us: 0, them: 0, current: null };
+  save(); updatePossUI();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -603,7 +752,7 @@ function addPlayer() {
   if (num && state.players.find(p=>p.num===num)) { toast('#'+num+' already exists!'); return; }
   state.players.push({
     id: state.nextPid++, num: num||'??', name, squadId: sq,
-    stats:   { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0 },
+    stats:   { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0, wide:0, rebound:0 },
     posTime: { attack:0, midfield:0, defense:0, goalie:0, bench:0 },
     activePos: null
   });
@@ -731,6 +880,8 @@ function openUndo(pid) {
   if(p.stats.fo_l>0)    opts.push({l:'FO Loss ('+p.stats.fo_l+')',k:'fo_l'});
   if(p.stats.saves>0)   opts.push({l:'Save ('+p.stats.saves+')',   k:'saves'});
   if(p.stats.allowed>0) opts.push({l:'Allowed ('+p.stats.allowed+')',k:'allowed'});
+  if(p.stats.wide>0)    opts.push({l:'Wide/Miss ('+p.stats.wide+')', k:'wide'});
+  if(p.stats.rebound>0) opts.push({l:'Rebound Got ('+p.stats.rebound+')',k:'rebound'});
   if(!opts.length){ toast('Nothing to undo'); return; }
   document.getElementById('modal-title').textContent='Undo — '+p.name;
   document.getElementById('modal-body').innerHTML=`
@@ -799,15 +950,18 @@ function renderLive() {
         <button class="stat-btn shot"  onclick="rec(${p.id},'shots')">  <span class="cnt">${p.stats.shots}</span>Shot</button>
         <button class="stat-btn goal"  onclick="rec(${p.id},'goals')">  <span class="cnt">${p.stats.goals}</span>Goal</button>
         <button class="stat-btn fo-w"  onclick="rec(${p.id},'fo_w')">   <span class="cnt">${p.stats.fo_w}</span>FO W</button>
-        <button class="stat-btn fo-l"  onclick="rec(${p.id},'fo_l')">   <span class="cnt">${p.stats.fo_l}</span>FO L</button>
+        <button class="stat-btn fo-l"   onclick="rec(${p.id},'fo_l')">   <span class="cnt">${p.stats.fo_l}</span>FO L</button>
+        <button class="stat-btn wide"   onclick="rec(${p.id},'wide')">   <span class="cnt">${p.stats.wide}</span>Wide</button>
+        <button class="stat-btn rebound" onclick="rec(${p.id},'rebound')"><span class="cnt">${p.stats.rebound}</span>Rebound</button>
         ${showGK
           ? `<button class="stat-btn save"  onclick="rec(${p.id},'saves')">  <span class="cnt">${p.stats.saves}</span>Save</button>
-             <button class="stat-btn allow" onclick="rec(${p.id},'allowed')"><span class="cnt">${p.stats.allowed}</span>Allow</button>`
+             <button class="stat-btn allow" onclick="rec(${p.id},'allowed')"><span class="cnt">${p.stats.allowed}</span>Allow</button>
+             <button class="stat-btn wide"  onclick="rec(${p.id},'wide')">   <span class="cnt">${p.stats.wide}</span>Wide</button>`
           : ''}
         <button class="stat-btn undo" onclick="openUndo(${p.id})"><span class="cnt">↩</span>Undo</button>
       </div>
 
-      ${showGK ? `<div class="gk-banner">🥅 Goalie &nbsp;|&nbsp; ${tf} shots faced <span class="gk-pct">${svPct}% Sv%</span></div>` : ''}
+      ${showGK ? `<div class="gk-banner">🥅 Goalie &nbsp;|&nbsp; ${tf} on target &nbsp;·&nbsp; ${p.stats.wide||0} wide <span class="gk-pct">${svPct}% Sv%</span></div>` : ''}
     </div>`;
   }).join('');
 }
@@ -829,6 +983,32 @@ function setPos(pid, pos) {
 function renderSummary() {
   const P = state.players;
 
+  // Possession summary
+  const poss = state.poss;
+  const possTotal = poss.us + poss.them;
+  const usPct  = possTotal ? Math.round(poss.us   / possTotal * 100) : 0;
+  const thPct  = possTotal ? Math.round(poss.them / possTotal * 100) : 0;
+  document.getElementById('poss-summary-content').innerHTML = possTotal > 0 ? `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+      <div class="stat-cell" style="flex:1;min-width:110px;border-color:rgba(127,255,111,.2)">
+        <div class="stat-label" style="color:var(--accent)">Our Possession</div>
+        <div class="stat-value grn">${fmt(poss.us)}</div>
+        <div style="font-size:11px;color:var(--gray);margin-top:2px">${usPct}% of timed possession</div>
+      </div>
+      <div style="flex:0 0 auto;text-align:center;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--gray);letter-spacing:1px;margin-bottom:4px">VS</div>
+        <div style="width:100px;height:10px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden;">
+          <div style="width:${usPct}%;height:100%;background:linear-gradient(90deg,var(--accent),#60dfff);border-radius:5px;transition:width .5s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--gray);margin-top:4px">${fmt(possTotal)} tracked</div>
+      </div>
+      <div class="stat-cell" style="flex:1;min-width:110px;border-color:rgba(224,53,53,.2)">
+        <div class="stat-label" style="color:#ff8080">Their Possession</div>
+        <div class="stat-value red">${fmt(poss.them)}</div>
+        <div style="font-size:11px;color:var(--gray);margin-top:2px">${thPct}% of timed possession</div>
+      </div>
+    </div>` : '<div style="color:var(--gray);font-size:13px">No possession tracked yet. Tap Our Ball / Their Ball above the tabs during play.</div>';
+
   // Team totals
   const T = P.reduce((a,p)=>({
     shots:   a.shots+p.stats.shots,
@@ -836,8 +1016,10 @@ function renderSummary() {
     fo_w:    a.fo_w+p.stats.fo_w,
     fo_l:    a.fo_l+p.stats.fo_l,
     saves:   a.saves+p.stats.saves,
-    allowed: a.allowed+p.stats.allowed
-  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0});
+    allowed: a.allowed+p.stats.allowed,
+    wide:    a.wide+(p.stats.wide||0),
+    rebound: a.rebound+(p.stats.rebound||0)
+  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0,wide:0,rebound:0});
   const shPct = T.shots ? Math.round(T.goals/T.shots*100) : 0;
   const foPct = (T.fo_w+T.fo_l) ? Math.round(T.fo_w/(T.fo_w+T.fo_l)*100) : 0;
   const tf    = T.saves+T.allowed;
@@ -853,6 +1035,12 @@ function renderSummary() {
     <div class="stat-cell"><div class="stat-label">GK Saves</div><div class="stat-value pur">${T.saves}</div></div>
     <div class="stat-cell"><div class="stat-label">GK Allow</div><div class="stat-value red">${T.allowed}</div></div>
     <div class="stat-cell"><div class="stat-label">Save %</div><div class="stat-value grn">${svPct}%</div></div>
+    <div class="stat-cell"><div class="stat-label">Wide/Miss</div><div class="stat-value" style="color:#ffb347">${T.wide}</div></div>
+    <div class="stat-cell"><div class="stat-label">Rebounds Got</div><div class="stat-value" style="color:#60dfff">${T.rebound}</div></div>
+    <div class="stat-cell"><div class="stat-label">Rebound %</div><div class="stat-value" style="color:#60dfff">${T.shots>0?Math.round(T.rebound/T.shots*100):'0'}%</div></div>
+    <div class="stat-cell"><div class="stat-label">Our Poss</div><div class="stat-value grn">${fmt(state.poss.us)}</div></div>
+    <div class="stat-cell"><div class="stat-label">Their Poss</div><div class="stat-value red">${fmt(state.poss.them)}</div></div>
+    <div class="stat-cell"><div class="stat-label">Poss %</div><div class="stat-value grn">${possTotal>0?usPct:'—'}%</div></div>
     <div class="stat-cell"><div class="stat-label">Game Time</div><div class="stat-value">${fmt(clockSec)}</div></div>
     <div class="stat-cell"><div class="stat-label">Players</div><div class="stat-value">${P.length}</div></div>`;
 
@@ -871,6 +1059,7 @@ function renderSummary() {
           <div><div class="stat-label">Saves</div><div class="stat-value pur">${p.stats.saves}</div></div>
           <div><div class="stat-label">Allow</div><div class="stat-value red">${p.stats.allowed}</div></div>
           <div><div class="stat-label">Sv%</div><div class="stat-value grn">${sv2}%</div></div>
+          <div><div class="stat-label">Wide</div><div class="stat-value" style="color:#ffb347;font-size:22px">${p.stats.wide||0}</div></div>
           <div><div class="stat-label">GK Time</div><div style="font-size:13px;color:var(--gray);font-weight:600;margin-top:4px">${fmt(p.posTime.goalie||0)}</div></div>
         </div>
       </div>`;
@@ -918,6 +1107,8 @@ function renderSummary() {
       <td class="th-sep sn sp">${p.stats.saves}</td>
       <td class="sn sr">${p.stats.allowed}</td>
       <td class="sn">${psv!==null ? psv+'%' : '—'}</td>
+      <td class="th-sep sn" style="color:#ffb347">${p.stats.wide||0}</td>
+      <td class="sn" style="color:#60dfff">${p.stats.rebound||0}</td>
     </tr>`;
   }).join('');
 }
@@ -925,11 +1116,12 @@ function renderSummary() {
 function resetAllStats() {
   if (!confirm('Reset ALL stats and position times for every player? This cannot be undone.')) return;
   state.players.forEach(p=>{
-    p.stats   = { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0 };
+    p.stats   = { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0, wide:0, rebound:0 };
     p.posTime = { attack:0, midfield:0, defense:0, goalie:0, bench:0 };
     p.activePos = null;
   });
-  save(); renderSummary(); toast('Stats reset!');
+  state.poss = { us: 0, them: 0, current: null };
+  save(); updatePossUI(); renderSummary(); toast('Stats reset!');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -943,7 +1135,7 @@ function exportCSV() {
 
   // ── Section 1: Player Stats ──
   rows.push(['PLAYER STATS']);
-  rows.push(['#','Name','Squad','Goals','Shots','Shot%','FO Wins','FO Losses','FO%','Saves','Allowed','Save%']);
+  rows.push(['#','Name','Squad','Goals','Shots','Shot%','FO Wins','FO Losses','FO%','Saves','Allowed','Save%','Wide/Miss','Rebounds Got']);
   sorted.forEach(p => {
     const sp  = p.stats.shots ? Math.round(p.stats.goals/p.stats.shots*100)+'%' : '0%';
     const fot = p.stats.fo_w+p.stats.fo_l;
@@ -951,7 +1143,7 @@ function exportCSV() {
     const tf  = p.stats.saves+p.stats.allowed;
     const sv  = tf ? Math.round(p.stats.saves/tf*100)+'%' : '-';
     rows.push([p.num, p.name, sq(p.squadId), p.stats.goals, p.stats.shots, sp,
-               p.stats.fo_w, p.stats.fo_l, fop, p.stats.saves, p.stats.allowed, sv]);
+               p.stats.fo_w, p.stats.fo_l, fop, p.stats.saves, p.stats.allowed, sv, p.stats.wide||0, p.stats.rebound||0]);
   });
 
   // ── Section 2: Position Times ──
@@ -966,15 +1158,26 @@ function exportCSV() {
                fmt(p.posTime.bench||0), fmt(onField)]);
   });
 
-  // ── Section 3: Team Totals ──
+  // ── Section 3: Possession ──
+  rows.push([]);
+  rows.push(['POSSESSION']);
+  rows.push(['Our Time','Their Time','Our %','Their %','Total Tracked']);
+  const poss2=state.poss;
+  const pt2=poss2.us+poss2.them;
+  rows.push([fmt(poss2.us),fmt(poss2.them),
+    pt2?Math.round(poss2.us/pt2*100)+'%':'—',
+    pt2?Math.round(poss2.them/pt2*100)+'%':'—',
+    fmt(pt2)]);
+
+  // ── Section 4: Team Totals ──
   rows.push([]);
   rows.push(['TEAM TOTALS']);
   const T=state.players.reduce((a,p)=>({
     shots:a.shots+p.stats.shots,goals:a.goals+p.stats.goals,
     fo_w:a.fo_w+p.stats.fo_w,fo_l:a.fo_l+p.stats.fo_l,
-    saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed
-  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0});
-  rows.push(['Goals','Shots','Shot%','FO Wins','FO Losses','FO%','GK Saves','GK Allowed','Save%','Game Time','Players']);
+    saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed,wide:a.wide+(p.stats.wide||0),rebound:a.rebound+(p.stats.rebound||0)
+  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0,wide:0,rebound:0});
+  rows.push(['Goals','Shots','Shot%','FO Wins','FO Losses','FO%','GK Saves','GK Allowed','Save%','Wide/Miss','Rebounds Got','Rebound%','Game Time','Players']);
   const tf2=T.saves+T.allowed;
   rows.push([T.goals,T.shots,
     T.shots?Math.round(T.goals/T.shots*100)+'%':'0%',
@@ -982,6 +1185,8 @@ function exportCSV() {
     (T.fo_w+T.fo_l)?Math.round(T.fo_w/(T.fo_w+T.fo_l)*100)+'%':'0%',
     T.saves,T.allowed,
     tf2?Math.round(T.saves/tf2*100)+'%':'-',
+    T.wide, T.rebound,
+    T.shots?Math.round(T.rebound/T.shots*100)+'%':'-',
     fmt(clockSec), state.players.length]);
 
   // ── Build CSV string ──
@@ -1021,8 +1226,8 @@ function buildPrintReport() {
   const T=state.players.reduce((a,p)=>({
     shots:a.shots+p.stats.shots,goals:a.goals+p.stats.goals,
     fo_w:a.fo_w+p.stats.fo_w,fo_l:a.fo_l+p.stats.fo_l,
-    saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed
-  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0});
+    saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed,wide:a.wide+(p.stats.wide||0),rebound:a.rebound+(p.stats.rebound||0)
+  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0,wide:0,rebound:0});
   const tf=T.saves+T.allowed;
   const shPct=T.shots?Math.round(T.goals/T.shots*100):0;
   const foPct=(T.fo_w+T.fo_l)?Math.round(T.fo_w/(T.fo_w+T.fo_l)*100):0;
@@ -1102,13 +1307,20 @@ function buildPrintReport() {
       <div class="pr-section-title">Team Totals</div>
       ${totalsHTML}
 
+      <div class="pr-section-title">Ball Possession</div>
+      <div class="pr-totals" style="grid-template-columns:repeat(3,1fr)">
+        <div class="pr-total-cell"><div class="pr-total-label">Our Possession</div><div class="pr-total-value">${fmt(state.poss.us)}</div></div>
+        <div class="pr-total-cell"><div class="pr-total-label">Their Possession</div><div class="pr-total-value red">${fmt(state.poss.them)}</div></div>
+        <div class="pr-total-cell"><div class="pr-total-label">Our Poss %</div><div class="pr-total-value gold">${(state.poss.us+state.poss.them)>0?Math.round(state.poss.us/(state.poss.us+state.poss.them)*100)+'%':'—'}</div></div>
+      </div>
+
       <div class="pr-section-title">Player Stats</div>
       <table class="pr-table">
         <thead><tr>
           <th>#</th><th>Name</th><th>Squad</th>
           <th class="c">Goals</th><th class="c">Shots</th><th class="c">Shot%</th>
           <th class="c">FO W</th><th class="c">FO L</th><th class="c">FO%</th>
-          <th class="c">Saves</th><th class="c">Allow</th><th class="c">Sv%</th>
+          <th class="c">Saves</th><th class="c">Allow</th><th class="c">Sv%</th><th class="c">Wide</th><th class="c">Reb</th>
         </tr></thead>
         <tbody>${statsRows}</tbody>
       </table>
@@ -1147,6 +1359,7 @@ function toast(msg) {
 // ═══════════════════════════════════════════════════════════════
 syncSelects();
 renderRoster();
+updatePossUI();
 document.getElementById('main-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
 
 // ═══════════════════════════════════════════════════════════════
