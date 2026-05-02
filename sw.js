@@ -1,7 +1,7 @@
 // LAX Stats Tracker — Service Worker v2
 // Uses relative paths so it works under any GitHub Pages subdirectory
 
-const CACHE_NAME = 'lax-stats-v2';
+const CACHE_NAME = 'lax-stats-v4';
 
 const ASSETS = [
   './',
