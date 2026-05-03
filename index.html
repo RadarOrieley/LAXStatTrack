@@ -339,41 +339,6 @@
   }
   .poss-none-btn:active { color: var(--white); }
 
-
-  /* ── Team Toggle ── */
-  .team-toggle {
-    display: flex; align-items: stretch;
-    background: var(--card2); border-radius: 12px; overflow: hidden;
-    margin-bottom: 10px; border: 1px solid rgba(255,255,255,.08);
-    box-shadow: 0 2px 12px rgba(0,0,0,.4);
-  }
-  .team-toggle-btn {
-    flex: 1; padding: 11px 10px; border: none; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 13px;
-    letter-spacing: .5px; transition: all .2s; display: flex;
-    flex-direction: column; align-items: center; gap: 2px;
-    background: transparent; color: var(--gray);
-  }
-  .team-toggle-btn .tt-name { font-size: 14px; }
-  .team-toggle-btn .tt-sub  { font-size: 10px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; opacity: .7; }
-  .team-toggle-btn.active-us   { background: rgba(127,255,111,.15); color: var(--accent); border-bottom: 3px solid var(--accent); }
-  .team-toggle-btn.active-them { background: rgba(224,53,53,.15);   color: #ff8080;       border-bottom: 3px solid #ff8080; }
-  .team-toggle-divider { width: 1px; background: rgba(255,255,255,.08); flex-shrink: 0; }
-  .team-toggle-edit {
-    padding: 0 12px; background: transparent; border: none; color: var(--gray);
-    cursor: pointer; font-size: 16px; border-left: 1px solid rgba(255,255,255,.08);
-    transition: color .15s;
-  }
-  .team-toggle-edit:active { color: var(--gold); }
-  /* Header glow changes by active team */
-  .header.team-them { background: linear-gradient(135deg, #4a0d0d, #2a0808); }
-  .team-indicator {
-    font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-    padding: 2px 8px; border-radius: 10px; margin-bottom: 4px;
-  }
-  .team-indicator.us   { background: rgba(127,255,111,.2); color: var(--accent); }
-  .team-indicator.them { background: rgba(224,53,53,.2);   color: #ff8080; }
-
   #print-report { display:none; }
 
   /* ── PWA Install Banner ── */
@@ -422,7 +387,7 @@
       <div class="logo-icon">🥍</div>
       <div>
         <div class="logo-text">LAX Tracker</div>
-        <div class="team-indicator us" id="header-team-indicator">Our Team</div>
+        <div class="logo-sub">Youth Stats</div>
       </div>
     </div>
     <div class="game-time-box">
@@ -435,21 +400,6 @@
     </div>
   </div>
 
-
-
-  <!-- Team Toggle -->
-  <div class="team-toggle" id="team-toggle">
-    <button class="team-toggle-btn active-us" id="toggle-btn-us" onclick="switchTeam(0)">
-      <div class="tt-name" id="toggle-name-us">Our Team</div>
-      <div class="tt-sub">Tap to track</div>
-    </button>
-    <div class="team-toggle-divider"></div>
-    <button class="team-toggle-btn" id="toggle-btn-them" onclick="switchTeam(1)">
-      <div class="tt-name" id="toggle-name-them">Opponent</div>
-      <div class="tt-sub">Tap to track</div>
-    </button>
-    <button class="team-toggle-edit" onclick="openTeamNameModal()" title="Edit team names">✏️</button>
-  </div>
 
   <!-- Possession Tracker -->
   <div class="poss-bar" id="poss-bar">
@@ -563,7 +513,7 @@
   <!-- ═══ SUMMARY ═══ -->
   <div class="section" id="sec-summary">
     <div class="section-header">
-      <div class="section-title">Summary — <span id="summary-team-name" style="color:var(--accent)"></span></div>
+      <div class="section-title">Game Summary</div>
       <button class="btn btn-danger btn-sm" onclick="resetAllStats()">↺ Reset Stats</button>
     </div>
     <!-- Export bar -->
@@ -682,69 +632,28 @@
 // ═══════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════
-// ── Helper: blank team data ──
-function blankTeam(name) {
-  return {
-    name,
-    players: [], squads: [], nextPid: 1, nextSid: 1,
-    teamDef: { wide: 0, rebound: 0 }
-  };
-}
-
-// ── Load or init state ──
-let state = JSON.parse(localStorage.getItem('laxv3') || 'null') || null;
-
-// Fresh install
-if (!state) {
-  state = {
-    activeTeam: 0,
-    teams: [ blankTeam('Our Team'), blankTeam('Opponent') ],
-    poss: { us: 0, them: 0, current: null }
-  };
-}
-
-// ── Migrations ──
-// v1→v2: flat state → two-team structure
-if (!state.teams) {
-  const oldPlayers  = state.players  || [];
-  const oldSquads   = state.squads   || [];
-  const oldTeamDef  = state.teamDef  || { wide: 0, rebound: 0 };
-  state = {
-    activeTeam: 0,
-    teams: [
-      { name: 'Our Team',  players: oldPlayers, squads: oldSquads,
-        nextPid: state.nextPid||1, nextSid: state.nextSid||1, teamDef: oldTeamDef },
-      blankTeam('Opponent')
-    ],
-    poss: state.poss || { us: 0, them: 0, current: null }
-  };
-}
+let state = JSON.parse(localStorage.getItem('laxv3') || 'null') || {
+  players: [], squads: [], nextPid: 1, nextSid: 1,
+  poss: { us: 0, them: 0, current: null },
+  teamDef: { wide: 0, rebound: 0 }
+};
+// Migrate possession if missing
 if (!state.poss) state.poss = { us: 0, them: 0, current: null };
-if (state.activeTeam === undefined) state.activeTeam = 0;
-
-// Ensure both teams have required fields
-state.teams.forEach(t => {
-  if (!t.teamDef) t.teamDef = { wide: 0, rebound: 0 };
-  if (!t.players) t.players = [];
-  if (!t.squads)  t.squads  = [];
-  if (!t.nextPid) t.nextPid = 1;
-  if (!t.nextSid) t.nextSid = 1;
-  t.players.forEach(p => {
-    if (!p.stats) p.stats = {};
-    ['shots','goals','fo_w','fo_l','saves','allowed'].forEach(k => { if(p.stats[k]==null) p.stats[k]=0; });
-    if (!p.posTime) p.posTime = {};
-    ['attack','midfield','defense','goalie','bench'].forEach(k => { if(p.posTime[k]==null) p.posTime[k]=0; });
-    if (p.activePos === undefined) p.activePos = null;
-  });
+// Migrate team defensive stats if missing
+if (!state.teamDef) state.teamDef = { wide: 0, rebound: 0 };
+// Ensure all players have current fields (migration)
+state.players.forEach(p => {
+  if (!p.stats) p.stats = {};
+  ['shots','goals','fo_w','fo_l','saves','allowed'].forEach(k => { if(p.stats[k]==null) p.stats[k]=0; });
+  if (!p.posTime) p.posTime = {};
+  ['attack','midfield','defense','goalie','bench'].forEach(k => { if(p.posTime[k]==null) p.posTime[k]=0; });
+  if (p.activePos === undefined) p.activePos = null;
 });
-
-// ── Active team accessor (everything reads from here) ──
-function T() { return state.teams[state.activeTeam]; }
 
 let clockSec     = parseInt(localStorage.getItem('laxClk3') || '0');
 let clockRunning = false, clockIv = null, posIv = null;
-let modalMode    = null;
-let modalTarget  = null;
+let modalMode    = null; // 'move' | 'undo'
+let modalTarget  = null; // player id
 
 // ═══════════════════════════════════════════════════════════════
 // PERSIST
@@ -769,7 +678,7 @@ function startClock() {
   clockIv = setInterval(() => { clockSec++; updateClockUI(); save(); }, 1000);
   posIv   = setInterval(() => {
     let changed = false;
-    T().players.forEach(p => {
+    state.players.forEach(p => {
       if (p.activePos) { p.posTime[p.activePos]++; changed = true; }
     });
     // Tick possession
@@ -791,7 +700,7 @@ function resetClock() {
 
 // Update just the chip rows each second (no full re-render)
 function tickChips() {
-  T().players.forEach(p => {
+  state.players.forEach(p => {
     const el = document.getElementById('chips-'+p.id);
     if (el) el.innerHTML = buildChips(p);
   });
@@ -800,81 +709,18 @@ function tickChips() {
 
 
 
-
-// ═══════════════════════════════════════════════════════════════
-// TEAM TOGGLE
-// ═══════════════════════════════════════════════════════════════
-function switchTeam(idx) {
-  if (state.activeTeam === idx) return;
-  // Stop position timers for current team players
-  T().players.forEach(p => p.activePos = null);
-  state.activeTeam = idx;
-  save();
-  updateTeamToggleUI();
-  // Re-render active tab
-  const activeTab = ['roster','live','squads','summary'].find(t =>
-    document.getElementById('sec-'+t).classList.contains('active')
-  );
-  if (activeTab) showTab(activeTab);
-  toast('Tracking: ' + T().name);
-}
-
-function updateTeamToggleUI() {
-  const isUs = state.activeTeam === 0;
-  const usBtn   = document.getElementById('toggle-btn-us');
-  const themBtn = document.getElementById('toggle-btn-them');
-  const header  = document.querySelector('.header');
-  const ind     = document.getElementById('header-team-indicator');
-
-  usBtn.className   = 'team-toggle-btn' + (isUs  ? ' active-us'   : '');
-  themBtn.className = 'team-toggle-btn' + (!isUs ? ' active-them' : '');
-
-  document.getElementById('toggle-name-us').textContent   = state.teams[0].name;
-  document.getElementById('toggle-name-them').textContent = state.teams[1].name;
-
-  header.classList.toggle('team-them', !isUs);
-  ind.textContent  = T().name;
-  ind.className    = 'team-indicator ' + (isUs ? 'us' : 'them');
-}
-
-function openTeamNameModal() {
-  document.getElementById('modal-title').textContent = 'Edit Team Names';
-  document.getElementById('modal-body').innerHTML = `
-    <div class="form-group" style="margin-bottom:10px">
-      <label>Our Team Name</label>
-      <input type="text" id="team-name-us" value="${esc(state.teams[0].name)}" placeholder="Our Team">
-    </div>
-    <div class="form-group">
-      <label>Opponent Name</label>
-      <input type="text" id="team-name-them" value="${esc(state.teams[1].name)}" placeholder="Opponent">
-    </div>`;
-  document.getElementById('modal-footer').innerHTML = `
-    <button class="btn btn-danger btn-sm" onclick="closeModal()">Cancel</button>
-    <button class="btn btn-primary" onclick="confirmTeamNames()">Save</button>`;
-  openModal();
-}
-
-function confirmTeamNames() {
-  const usName   = document.getElementById('team-name-us').value.trim()   || 'Our Team';
-  const themName = document.getElementById('team-name-them').value.trim() || 'Opponent';
-  state.teams[0].name = usName;
-  state.teams[1].name = themName;
-  save(); updateTeamToggleUI(); closeModal();
-  toast('Team names updated');
-}
-
 // ═══════════════════════════════════════════════════════════════
 // TEAM DEFENSIVE STATS (wide shots & rebounds at our goal)
 // ═══════════════════════════════════════════════════════════════
 function recTeamDef(key) {
-  T().teamDef[key]++;
+  state.teamDef[key]++;
   save(); updateTeamDefUI(); toast(key==='wide'?'Wide / Miss recorded':'Rebound — we got it!');
 }
 
 function undoTeamDef() {
   const opts = [];
-  if (T().teamDef.wide > 0)    opts.push({l:'Wide/Miss ('+T().teamDef.wide+')',       k:'wide'});
-  if (T().teamDef.rebound > 0) opts.push({l:'We Got Rebound ('+T().teamDef.rebound+')', k:'rebound'});
+  if (state.teamDef.wide > 0)    opts.push({l:'Wide/Miss ('+state.teamDef.wide+')',    k:'wide'});
+  if (state.teamDef.rebound > 0) opts.push({l:'We Got Rebound ('+state.teamDef.rebound+')', k:'rebound'});
   if (!opts.length) { toast('Nothing to undo'); return; }
   document.getElementById('modal-title').textContent = 'Undo — Against Our Goal';
   document.getElementById('modal-body').innerHTML = `
@@ -890,15 +736,15 @@ function undoTeamDef() {
 
 function confirmTeamDefUndo() {
   const k = document.getElementById('modal-undo-key').value;
-  if (state.teamDef[k] > 0) { T().teamDef[k]--; save(); updateTeamDefUI(); toast('Undone'); }
+  if (state.teamDef[k] > 0) { state.teamDef[k]--; save(); updateTeamDefUI(); toast('Undone'); }
   closeModal();
 }
 
 function updateTeamDefUI() {
   const w = document.getElementById('td-wide');
   const r = document.getElementById('td-rebound');
-  if (w) w.textContent = T().teamDef.wide;
-  if (r) r.textContent = T().teamDef.rebound;
+  if (w) w.textContent = state.teamDef.wide;
+  if (r) r.textContent = state.teamDef.rebound;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -960,9 +806,9 @@ function addPlayer() {
   const name = document.getElementById('inp-name').value.trim();
   const sq   = document.getElementById('inp-squad-roster').value;
   if (!name) { toast('Enter a player name'); return; }
-  if (num && T().players.find(p=>p.num===num)) { toast('#'+num+' already exists!'); return; }
-  T().players.push({
-    id: T().nextPid++, num: num||'??', name, squadId: sq,
+  if (num && state.players.find(p=>p.num===num)) { toast('#'+num+' already exists!'); return; }
+  state.players.push({
+    id: state.nextPid++, num: num||'??', name, squadId: sq,
     stats:   { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0 },
     posTime: { attack:0, midfield:0, defense:0, goalie:0, bench:0 },
     activePos: null
@@ -975,19 +821,19 @@ function addPlayer() {
 
 function deletePlayer(id) {
   if (!confirm('Remove this player?')) return;
-  state.teams[state.activeTeam].players = T().players.filter(p=>p.id!==id);
+  state.players = state.players.filter(p=>p.id!==id);
   save(); renderRoster(); toast('Player removed');
 }
 
 function renderRoster() {
   syncSelects();
   const list = document.getElementById('player-list');
-  document.getElementById('roster-count').textContent = T().players.length;
-  if (!T().players.length) { list.innerHTML='<div class="empty-state">No players yet. Add some above ☝️</div>'; return; }
-  list.innerHTML = [...T().players]
+  document.getElementById('roster-count').textContent = state.players.length;
+  if (!state.players.length) { list.innerHTML='<div class="empty-state">No players yet. Add some above ☝️</div>'; return; }
+  list.innerHTML = [...state.players]
     .sort((a,b)=>parseInt(a.num)-parseInt(b.num))
     .map(p => {
-      const sq = T().squads.find(s=>s.id==p.squadId);
+      const sq = state.squads.find(s=>s.id==p.squadId);
       return `<div class="player-card">
         <div class="player-num">${p.num}</div>
         <div class="player-info">
@@ -1008,24 +854,24 @@ function renderRoster() {
 function addSquad() {
   const name = document.getElementById('inp-squad-name').value.trim();
   if (!name) { toast('Enter a squad name'); return; }
-  T().squads.push({ id: T().nextSid++, name });
+  state.squads.push({ id: state.nextSid++, name });
   document.getElementById('inp-squad-name').value='';
   save(); renderSquads(); syncSelects(); toast('Squad "'+name+'" created');
 }
 
-function renameSquad(id,v) { const s=T().squads.find(s=>s.id==id); if(s){s.name=v; save(); syncSelects();} }
+function renameSquad(id,v) { const s=state.squads.find(s=>s.id==id); if(s){s.name=v; save(); syncSelects();} }
 function deleteSquad(id) {
   if (!confirm('Delete squad? Players will be unassigned.')) return;
-  state.squads = T().squads.filter(s=>s.id!=id);
-  T().players.forEach(p=>{ if(p.squadId==id) p.squadId=''; });
+  state.squads = state.squads.filter(s=>s.id!=id);
+  state.players.forEach(p=>{ if(p.squadId==id) p.squadId=''; });
   save(); renderSquads(); syncSelects();
 }
 
 function renderSquads() {
   const c = document.getElementById('squad-container');
   if (!state.squads.length) { c.innerHTML='<div class="empty-state" style="grid-column:1/-1">No squads yet.</div>'; return; }
-  c.innerHTML = T().squads.map(sq => {
-    const players = T().players.filter(p=>p.squadId==sq.id);
+  c.innerHTML = state.squads.map(sq => {
+    const players = state.players.filter(p=>p.squadId==sq.id);
     return `<div class="squad-card">
       <div class="squad-header">
         <input class="squad-name-input" value="${esc(sq.name)}" onchange="renameSquad(${sq.id},this.value)">
@@ -1043,8 +889,8 @@ function renderSquads() {
 }
 
 function syncSelects() {
-  const base   = `<option value="">No Squad</option>`   + T().squads.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
-  const filter = `<option value="">All Players</option>` + T().squads.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  const base   = `<option value="">No Squad</option>`   + state.squads.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  const filter = `<option value="">All Players</option>` + state.squads.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
   ['inp-squad-roster'].forEach(id=>{ const el=document.getElementById(id); if(!el) return; const v=el.value; el.innerHTML=base; el.value=v; });
   const lf=document.getElementById('live-filter-squad'); if(lf){ const v=lf.value; lf.innerHTML=filter; lf.value=v; }
   const ms=document.getElementById('modal-squad'); if(ms){ const v=ms.value; ms.innerHTML=base; ms.value=v; }
@@ -1061,7 +907,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 function openMove(pid) {
   modalMode='move'; modalTarget=pid;
-  const p = T().players.find(pl=>pl.id===pid);
+  const p = state.players.find(pl=>pl.id===pid);
   document.getElementById('modal-title').textContent='Move Player';
   document.getElementById('modal-body').innerHTML=`
     <div class="form-group">
@@ -1076,13 +922,13 @@ function openMove(pid) {
   openModal();
 }
 function confirmMove() {
-  const p=T().players.find(pl=>pl.id===modalTarget); if(!p) return;
+  const p=state.players.find(pl=>pl.id===modalTarget); if(!p) return;
   p.squadId=document.getElementById('modal-squad').value;
   save(); toast(p.name+' moved!'); closeModal(); renderRoster(); renderSquads();
 }
 
 function openUndo(pid) {
-  const p=T().players.find(pl=>pl.id===pid); if(!p) return;
+  const p=state.players.find(pl=>pl.id===pid); if(!p) return;
   modalMode='undo'; modalTarget=pid;
   const opts=[];
   if(p.stats.goals>0)   opts.push({l:'Goal ('+p.stats.goals+')',   k:'goals'});
@@ -1104,7 +950,7 @@ function openUndo(pid) {
   openModal();
 }
 function confirmUndo() {
-  const p=T().players.find(pl=>pl.id===modalTarget); if(!p) return;
+  const p=state.players.find(pl=>pl.id===modalTarget); if(!p) return;
   const k=document.getElementById('modal-undo-key').value;
   if(p.stats[k]>0){ p.stats[k]--; save(); renderLive(); toast('Undone'); }
   closeModal();
@@ -1128,7 +974,7 @@ function buildChips(p) {
 
 function renderLive() {
   const fSq = document.getElementById('live-filter-squad').value;
-  let players = fSq ? T().players.filter(p=>p.squadId==fSq) : T().players;
+  let players = fSq ? state.players.filter(p=>p.squadId==fSq) : state.players;
   players = [...players].sort((a,b)=>parseInt(a.num)-parseInt(b.num));
 
   updateTeamDefUI();
@@ -1175,12 +1021,12 @@ function renderLive() {
 }
 
 function rec(pid, stat) {
-  const p=T().players.find(pl=>pl.id===pid); if(!p) return;
+  const p=state.players.find(pl=>pl.id===pid); if(!p) return;
   p.stats[stat]++; save(); renderLive();
 }
 
 function setPos(pid, pos) {
-  const p=T().players.find(pl=>pl.id===pid); if(!p) return;
+  const p=state.players.find(pl=>pl.id===pid); if(!p) return;
   p.activePos = (p.activePos===pos) ? null : pos;
   save(); renderLive();
 }
@@ -1189,9 +1035,7 @@ function setPos(pid, pos) {
 // SUMMARY
 // ═══════════════════════════════════════════════════════════════
 function renderSummary() {
-  const P = T().players;
-  const stn = document.getElementById('summary-team-name');
-  if (stn) stn.textContent = T().name;
+  const P = state.players;
 
   // Possession summary
   const poss = state.poss;
@@ -1243,8 +1087,8 @@ function renderSummary() {
     <div class="stat-cell"><div class="stat-label">GK Saves</div><div class="stat-value pur">${T.saves}</div></div>
     <div class="stat-cell"><div class="stat-label">GK Allow</div><div class="stat-value red">${T.allowed}</div></div>
     <div class="stat-cell"><div class="stat-label">Save %</div><div class="stat-value grn">${svPct}%</div></div>
-    <div class="stat-cell"><div class="stat-label">Wide / Miss</div><div class="stat-value" style="color:#ffb347">${T().teamDef.wide}</div></div>
-    <div class="stat-cell"><div class="stat-label">We Got Rebound</div><div class="stat-value" style="color:#60dfff">${T().teamDef.rebound}</div></div>
+    <div class="stat-cell"><div class="stat-label">Wide / Miss</div><div class="stat-value" style="color:#ffb347">${state.teamDef.wide}</div></div>
+    <div class="stat-cell"><div class="stat-label">We Got Rebound</div><div class="stat-value" style="color:#60dfff">${state.teamDef.rebound}</div></div>
     <div class="stat-cell"><div class="stat-label">Our Poss</div><div class="stat-value grn">${fmt(state.poss.us)}</div></div>
     <div class="stat-cell"><div class="stat-label">Their Poss</div><div class="stat-value red">${fmt(state.poss.them)}</div></div>
     <div class="stat-cell"><div class="stat-label">Poss %</div><div class="stat-value grn">${possTotal>0?usPct:'—'}%</div></div>
@@ -1318,101 +1162,88 @@ function renderSummary() {
 }
 
 function resetAllStats() {
-  const tName = T().name;
-  if (!confirm('Reset all stats for ' + tName + '? This cannot be undone.')) return;
-  T().players.forEach(p=>{
+  if (!confirm('Reset ALL stats and position times for every player? This cannot be undone.')) return;
+  state.players.forEach(p=>{
     p.stats   = { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0 };
     p.posTime = { attack:0, midfield:0, defense:0, goalie:0, bench:0 };
     p.activePos = null;
   });
-  T().teamDef = { wide: 0, rebound: 0 };
-  if (state.activeTeam === 0) state.poss = { us: 0, them: 0, current: null };
-  save(); updatePossUI(); renderSummary(); toast(tName + ' stats reset!');
+  state.poss    = { us: 0, them: 0, current: null };
+  state.teamDef = { wide: 0, rebound: 0 };
+  save(); updatePossUI(); renderSummary(); toast('Stats reset!');
 }
 
 // ═══════════════════════════════════════════════════════════════
 // EXPORT — CSV
 // ═══════════════════════════════════════════════════════════════
 function exportCSV() {
-  function buildTeamRows(teamIdx) {
-    const team   = state.teams[teamIdx];
-    const sorted = [...team.players].sort((a,b)=>parseInt(a.num)-parseInt(b.num));
-    const sq     = id => { const s=team.squads.find(s=>s.id==id); return s?s.name:''; };
-    const rows   = [];
+  if (!state.players.length) { toast('No players to export'); return; }
+  const sorted = [...state.players].sort((a,b)=>parseInt(a.num)-parseInt(b.num));
+  const sq = id => { const s=state.squads.find(s=>s.id==id); return s?s.name:''; };
+  const rows = [];
 
-    rows.push(['TEAM: ' + team.name.toUpperCase()]);
+  // ── Section 1: Player Stats ──
+  rows.push(['PLAYER STATS']);
+  rows.push(['#','Name','Squad','Goals','Shots','Shot%','FO Wins','FO Losses','FO%','Saves','Allowed','Save%']);
+  sorted.forEach(p => {
+    const sp  = p.stats.shots ? Math.round(p.stats.goals/p.stats.shots*100)+'%' : '0%';
+    const fot = p.stats.fo_w+p.stats.fo_l;
+    const fop = fot ? Math.round(p.stats.fo_w/fot*100)+'%' : '0%';
+    const tf  = p.stats.saves+p.stats.allowed;
+    const sv  = tf ? Math.round(p.stats.saves/tf*100)+'%' : '-';
+    rows.push([p.num, p.name, sq(p.squadId), p.stats.goals, p.stats.shots, sp,
+               p.stats.fo_w, p.stats.fo_l, fop, p.stats.saves, p.stats.allowed, sv]);
+  });
 
-    // Player Stats
-    rows.push(['PLAYER STATS']);
-    rows.push(['#','Name','Squad','Goals','Shots','Shot%','FO Wins','FO Losses','FO%','Saves','Allowed','Save%']);
-    sorted.forEach(p => {
-      const sp  = p.stats.shots ? Math.round(p.stats.goals/p.stats.shots*100)+'%' : '0%';
-      const fot = p.stats.fo_w+p.stats.fo_l;
-      const fop = fot ? Math.round(p.stats.fo_w/fot*100)+'%' : '0%';
-      const tf  = p.stats.saves+p.stats.allowed;
-      const sv  = tf ? Math.round(p.stats.saves/tf*100)+'%' : '-';
-      rows.push([p.num, p.name, sq(p.squadId), p.stats.goals, p.stats.shots, sp,
-                 p.stats.fo_w, p.stats.fo_l, fop, p.stats.saves, p.stats.allowed, sv]);
-    });
+  // ── Section 2: Position Times ──
+  rows.push([]);
+  rows.push(['POSITION TIME']);
+  rows.push(['#','Name','Squad','Attack','Midfield','Defense','Goalie','Bench','Total On Field']);
+  sorted.forEach(p => {
+    const onField=(p.posTime.attack||0)+(p.posTime.midfield||0)+(p.posTime.defense||0)+(p.posTime.goalie||0);
+    rows.push([p.num, p.name, sq(p.squadId),
+               fmt(p.posTime.attack||0), fmt(p.posTime.midfield||0),
+               fmt(p.posTime.defense||0), fmt(p.posTime.goalie||0),
+               fmt(p.posTime.bench||0), fmt(onField)]);
+  });
 
-    // Position Times
-    rows.push([]);
-    rows.push(['POSITION TIME']);
-    rows.push(['#','Name','Squad','Attack','Midfield','Defense','Goalie','Bench','Total On Field']);
-    sorted.forEach(p => {
-      const onField=(p.posTime.attack||0)+(p.posTime.midfield||0)+(p.posTime.defense||0)+(p.posTime.goalie||0);
-      rows.push([p.num, p.name, sq(p.squadId),
-                 fmt(p.posTime.attack||0), fmt(p.posTime.midfield||0),
-                 fmt(p.posTime.defense||0), fmt(p.posTime.goalie||0),
-                 fmt(p.posTime.bench||0), fmt(onField)]);
-    });
+  // ── Section 3: Possession ──
+  rows.push([]);
+  rows.push(['POSSESSION']);
+  rows.push(['Our Time','Their Time','Our %','Their %','Total Tracked']);
+  const poss2=state.poss;
+  const pt2=poss2.us+poss2.them;
+  rows.push([fmt(poss2.us),fmt(poss2.them),
+    pt2?Math.round(poss2.us/pt2*100)+'%':'—',
+    pt2?Math.round(poss2.them/pt2*100)+'%':'—',
+    fmt(pt2)]);
 
-    // Defensive Events
-    rows.push([]);
-    rows.push(['AGAINST OUR GOAL']);
-    rows.push(['Wide / Miss','We Got Rebound']);
-    rows.push([team.teamDef.wide, team.teamDef.rebound]);
+  // ── Section 4: Defensive Events (team-level) ──
+  rows.push([]);
+  rows.push(['AGAINST OUR GOAL']);
+  rows.push(['Wide / Miss','We Got Rebound']);
+  rows.push([state.teamDef.wide, state.teamDef.rebound]);
 
-    // Team Totals
-    rows.push([]);
-    rows.push(['TEAM TOTALS']);
-    const T2 = sorted.reduce((a,p)=>({
-      shots:   a.shots+p.stats.shots,   goals:   a.goals+p.stats.goals,
-      fo_w:    a.fo_w+p.stats.fo_w,     fo_l:    a.fo_l+p.stats.fo_l,
-      saves:   a.saves+p.stats.saves,   allowed: a.allowed+p.stats.allowed
-    }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0});
-    const tf2 = T2.saves+T2.allowed;
-    rows.push(['Goals','Shots','Shot%','FO Wins','FO Losses','FO%','GK Saves','GK Allowed','Save%','Players']);
-    rows.push([T2.goals, T2.shots,
-      T2.shots?Math.round(T2.goals/T2.shots*100)+'%':'0%',
-      T2.fo_w, T2.fo_l,
-      (T2.fo_w+T2.fo_l)?Math.round(T2.fo_w/(T2.fo_w+T2.fo_l)*100)+'%':'0%',
-      T2.saves, T2.allowed,
-      tf2?Math.round(T2.saves/tf2*100)+'%':'-',
-      team.players.length]);
+  // ── Section 5: Team Totals ──
+  rows.push([]);
+  rows.push(['TEAM TOTALS']);
+  const T=state.players.reduce((a,p)=>({
+    shots:a.shots+p.stats.shots,goals:a.goals+p.stats.goals,
+    fo_w:a.fo_w+p.stats.fo_w,fo_l:a.fo_l+p.stats.fo_l,
+    saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed
+  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0});
+  rows.push(['Goals','Shots','Shot%','FO Wins','FO Losses','FO%','GK Saves','GK Allowed','Save%','Game Time','Players']);
+  const tf2=T.saves+T.allowed;
+  rows.push([T.goals,T.shots,
+    T.shots?Math.round(T.goals/T.shots*100)+'%':'0%',
+    T.fo_w,T.fo_l,
+    (T.fo_w+T.fo_l)?Math.round(T.fo_w/(T.fo_w+T.fo_l)*100)+'%':'0%',
+    T.saves,T.allowed,
+    tf2?Math.round(T.saves/tf2*100)+'%':'-',
+    fmt(clockSec), state.players.length]);
 
-    return rows;
-  }
-
-  // Build rows for both teams + shared possession
-  const allRows = [
-    ...buildTeamRows(0),
-    [], [''],
-    ...buildTeamRows(1),
-    [], [''],
-    ['BALL POSSESSION'],
-    ['Our Time','Their Time','Our %','Their %','Total Tracked','Game Time'],
-  ];
-  const p2  = state.poss;
-  const pt2 = p2.us+p2.them;
-  allRows.push([fmt(p2.us), fmt(p2.them),
-    pt2?Math.round(p2.us/pt2*100)+'%':'—',
-    pt2?Math.round(p2.them/pt2*100)+'%':'—',
-    fmt(pt2), fmt(clockSec)]);
-
-  if (allRows.length <= 6) { toast('No data to export'); return; }
-
-  const csv = allRows.map(row =>
+  // ── Build CSV string ──
+  const csv = rows.map(row =>
     row.map(cell => {
       const s = String(cell==null?'':cell);
       return s.includes(',') || s.includes('"') || s.includes('\n')
@@ -1434,18 +1265,18 @@ function exportCSV() {
 // EXPORT — PDF (browser print)
 // ═══════════════════════════════════════════════════════════════
 function exportPDF() {
-  if (!T().players.length) { toast('No players to export'); return; }
+  if (!state.players.length) { toast('No players to export'); return; }
   buildPrintReport();
   setTimeout(() => window.print(), 120);
 }
 
 function buildPrintReport() {
-  const sorted = [...T().players].sort((a,b)=>parseInt(a.num)-parseInt(b.num));
-  const sq = id => { const s=T().squads.find(s=>s.id==id); return s?s.name:'—'; };
+  const sorted = [...state.players].sort((a,b)=>parseInt(a.num)-parseInt(b.num));
+  const sq = id => { const s=state.squads.find(s=>s.id==id); return s?s.name:'—'; };
   const date = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
   // Team totals
-  const T=T().players.reduce((a,p)=>({
+  const T=state.players.reduce((a,p)=>({
     shots:a.shots+p.stats.shots,goals:a.goals+p.stats.goals,
     fo_w:a.fo_w+p.stats.fo_w,fo_l:a.fo_l+p.stats.fo_l,
     saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed
@@ -1521,10 +1352,10 @@ function buildPrintReport() {
     <div class="pr-page">
       <div class="pr-logo">
         <span class="pr-logo-icon">🥍</span>
-        <span class="pr-logo-text">LAX Stats — ${T().name}</span>
+        <span class="pr-logo-text">LAX Stats Report</span>
       </div>
       <div class="pr-subtitle">Youth Lacrosse</div>
-      <div class="pr-dateline">${date} &nbsp;·&nbsp; Game Time: ${fmt(clockSec)} &nbsp;·&nbsp; ${T().players.length} Players</div>
+      <div class="pr-dateline">${date} &nbsp;·&nbsp; Game Time: ${fmt(clockSec)} &nbsp;·&nbsp; ${state.players.length} Players</div>
 
       <div class="pr-section-title">Team Totals</div>
       ${totalsHTML}
@@ -1538,8 +1369,8 @@ function buildPrintReport() {
 
       <div class="pr-section-title">Against Our Goal</div>
       <div class="pr-totals" style="grid-template-columns:repeat(2,1fr)">
-        <div class="pr-total-cell"><div class="pr-total-label">Wide / Miss</div><div class="pr-total-value gold">${T().teamDef.wide}</div></div>
-        <div class="pr-total-cell"><div class="pr-total-label">We Got Rebound</div><div class="pr-total-value">${T().teamDef.rebound}</div></div>
+        <div class="pr-total-cell"><div class="pr-total-label">Wide / Miss</div><div class="pr-total-value gold">${state.teamDef.wide}</div></div>
+        <div class="pr-total-cell"><div class="pr-total-label">We Got Rebound</div><div class="pr-total-value">${state.teamDef.rebound}</div></div>
       </div>
 
       <div class="pr-section-title">Player Stats</div>
@@ -1589,7 +1420,6 @@ syncSelects();
 renderRoster();
 updatePossUI();
 updateTeamDefUI();
-updateTeamToggleUI();
 document.getElementById('main-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
 
 // ═══════════════════════════════════════════════════════════════
