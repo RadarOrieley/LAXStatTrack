@@ -473,6 +473,23 @@
       </div>
     </div>
     <div id="live-player-list"><div class="empty-state">Add players in the Roster tab first</div></div>
+
+    <!-- Team Defensive Events -->
+    <div class="card" style="margin-top:10px">
+      <div class="card-title">🛡 Against Our Goal</div>
+      <div style="font-size:11px;color:var(--gray);margin-bottom:10px;">Track what happens on shots at our own net</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="stat-btn wide" style="min-width:100px;padding:12px 16px;" onclick="recTeamDef('wide')">
+          <span class="cnt" id="td-wide">0</span>Wide / Miss
+        </button>
+        <button class="stat-btn rebound" style="min-width:100px;padding:12px 16px;" onclick="recTeamDef('rebound')">
+          <span class="cnt" id="td-rebound">0</span>We Got Rebound
+        </button>
+        <button class="stat-btn undo" style="min-width:80px;padding:12px 14px;" onclick="undoTeamDef()">
+          <span class="cnt">↩</span>Undo
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- ═══ SQUADS ═══ -->
@@ -558,8 +575,6 @@
               <th class="th-sep" style="color:var(--purple)">Saves</th>
               <th style="color:#ff8080">Allow</th>
               <th>Sv%</th>
-              <th class="th-sep" style="color:#ffb347">Wide</th>
-              <th style="color:#60dfff">Reb</th>
             </tr>
           </thead>
           <tbody id="stat-tbody"></tbody>
@@ -619,14 +634,17 @@
 // ═══════════════════════════════════════════════════════════════
 let state = JSON.parse(localStorage.getItem('laxv3') || 'null') || {
   players: [], squads: [], nextPid: 1, nextSid: 1,
-  poss: { us: 0, them: 0, current: null }
+  poss: { us: 0, them: 0, current: null },
+  teamDef: { wide: 0, rebound: 0 }
 };
 // Migrate possession if missing
 if (!state.poss) state.poss = { us: 0, them: 0, current: null };
+// Migrate team defensive stats if missing
+if (!state.teamDef) state.teamDef = { wide: 0, rebound: 0 };
 // Ensure all players have current fields (migration)
 state.players.forEach(p => {
   if (!p.stats) p.stats = {};
-  ['shots','goals','fo_w','fo_l','saves','allowed','wide','rebound'].forEach(k => { if(p.stats[k]==null) p.stats[k]=0; });
+  ['shots','goals','fo_w','fo_l','saves','allowed'].forEach(k => { if(p.stats[k]==null) p.stats[k]=0; });
   if (!p.posTime) p.posTime = {};
   ['attack','midfield','defense','goalie','bench'].forEach(k => { if(p.posTime[k]==null) p.posTime[k]=0; });
   if (p.activePos === undefined) p.activePos = null;
@@ -690,6 +708,45 @@ function tickChips() {
 }
 
 
+
+// ═══════════════════════════════════════════════════════════════
+// TEAM DEFENSIVE STATS (wide shots & rebounds at our goal)
+// ═══════════════════════════════════════════════════════════════
+function recTeamDef(key) {
+  state.teamDef[key]++;
+  save(); updateTeamDefUI(); toast(key==='wide'?'Wide / Miss recorded':'Rebound — we got it!');
+}
+
+function undoTeamDef() {
+  const opts = [];
+  if (state.teamDef.wide > 0)    opts.push({l:'Wide/Miss ('+state.teamDef.wide+')',    k:'wide'});
+  if (state.teamDef.rebound > 0) opts.push({l:'We Got Rebound ('+state.teamDef.rebound+')', k:'rebound'});
+  if (!opts.length) { toast('Nothing to undo'); return; }
+  document.getElementById('modal-title').textContent = 'Undo — Against Our Goal';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group">
+      <label>Subtract 1 from:</label>
+      <select id="modal-undo-key">${opts.map(o=>`<option value="${o.k}">${o.l}</option>`).join('')}</select>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-danger btn-sm" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="confirmTeamDefUndo()">Undo</button>`;
+  openModal();
+}
+
+function confirmTeamDefUndo() {
+  const k = document.getElementById('modal-undo-key').value;
+  if (state.teamDef[k] > 0) { state.teamDef[k]--; save(); updateTeamDefUI(); toast('Undone'); }
+  closeModal();
+}
+
+function updateTeamDefUI() {
+  const w = document.getElementById('td-wide');
+  const r = document.getElementById('td-rebound');
+  if (w) w.textContent = state.teamDef.wide;
+  if (r) r.textContent = state.teamDef.rebound;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // POSSESSION TRACKER
 // ═══════════════════════════════════════════════════════════════
@@ -752,7 +809,7 @@ function addPlayer() {
   if (num && state.players.find(p=>p.num===num)) { toast('#'+num+' already exists!'); return; }
   state.players.push({
     id: state.nextPid++, num: num||'??', name, squadId: sq,
-    stats:   { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0, wide:0, rebound:0 },
+    stats:   { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0 },
     posTime: { attack:0, midfield:0, defense:0, goalie:0, bench:0 },
     activePos: null
   });
@@ -880,8 +937,6 @@ function openUndo(pid) {
   if(p.stats.fo_l>0)    opts.push({l:'FO Loss ('+p.stats.fo_l+')',k:'fo_l'});
   if(p.stats.saves>0)   opts.push({l:'Save ('+p.stats.saves+')',   k:'saves'});
   if(p.stats.allowed>0) opts.push({l:'Allowed ('+p.stats.allowed+')',k:'allowed'});
-  if(p.stats.wide>0)    opts.push({l:'Wide/Miss ('+p.stats.wide+')', k:'wide'});
-  if(p.stats.rebound>0) opts.push({l:'Rebound Got ('+p.stats.rebound+')',k:'rebound'});
   if(!opts.length){ toast('Nothing to undo'); return; }
   document.getElementById('modal-title').textContent='Undo — '+p.name;
   document.getElementById('modal-body').innerHTML=`
@@ -922,6 +977,7 @@ function renderLive() {
   let players = fSq ? state.players.filter(p=>p.squadId==fSq) : state.players;
   players = [...players].sort((a,b)=>parseInt(a.num)-parseInt(b.num));
 
+  updateTeamDefUI();
   const c = document.getElementById('live-player-list');
   if (!players.length) { c.innerHTML='<div class="empty-state">No players. Add in Roster tab.</div>'; return; }
 
@@ -951,17 +1007,15 @@ function renderLive() {
         <button class="stat-btn goal"  onclick="rec(${p.id},'goals')">  <span class="cnt">${p.stats.goals}</span>Goal</button>
         <button class="stat-btn fo-w"  onclick="rec(${p.id},'fo_w')">   <span class="cnt">${p.stats.fo_w}</span>FO W</button>
         <button class="stat-btn fo-l"   onclick="rec(${p.id},'fo_l')">   <span class="cnt">${p.stats.fo_l}</span>FO L</button>
-        <button class="stat-btn wide"   onclick="rec(${p.id},'wide')">   <span class="cnt">${p.stats.wide}</span>Wide</button>
-        <button class="stat-btn rebound" onclick="rec(${p.id},'rebound')"><span class="cnt">${p.stats.rebound}</span>Rebound</button>
         ${showGK
           ? `<button class="stat-btn save"  onclick="rec(${p.id},'saves')">  <span class="cnt">${p.stats.saves}</span>Save</button>
              <button class="stat-btn allow" onclick="rec(${p.id},'allowed')"><span class="cnt">${p.stats.allowed}</span>Allow</button>
-             <button class="stat-btn wide"  onclick="rec(${p.id},'wide')">   <span class="cnt">${p.stats.wide}</span>Wide</button>`
+`
           : ''}
         <button class="stat-btn undo" onclick="openUndo(${p.id})"><span class="cnt">↩</span>Undo</button>
       </div>
 
-      ${showGK ? `<div class="gk-banner">🥅 Goalie &nbsp;|&nbsp; ${tf} on target &nbsp;·&nbsp; ${p.stats.wide||0} wide <span class="gk-pct">${svPct}% Sv%</span></div>` : ''}
+      ${showGK ? `<div class="gk-banner">🥅 Goalie &nbsp;|&nbsp; ${tf} shots on target <span class="gk-pct">${svPct}% Sv%</span></div>` : ''}
     </div>`;
   }).join('');
 }
@@ -1016,10 +1070,8 @@ function renderSummary() {
     fo_w:    a.fo_w+p.stats.fo_w,
     fo_l:    a.fo_l+p.stats.fo_l,
     saves:   a.saves+p.stats.saves,
-    allowed: a.allowed+p.stats.allowed,
-    wide:    a.wide+(p.stats.wide||0),
-    rebound: a.rebound+(p.stats.rebound||0)
-  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0,wide:0,rebound:0});
+    allowed: a.allowed+p.stats.allowed
+  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0});
   const shPct = T.shots ? Math.round(T.goals/T.shots*100) : 0;
   const foPct = (T.fo_w+T.fo_l) ? Math.round(T.fo_w/(T.fo_w+T.fo_l)*100) : 0;
   const tf    = T.saves+T.allowed;
@@ -1035,9 +1087,8 @@ function renderSummary() {
     <div class="stat-cell"><div class="stat-label">GK Saves</div><div class="stat-value pur">${T.saves}</div></div>
     <div class="stat-cell"><div class="stat-label">GK Allow</div><div class="stat-value red">${T.allowed}</div></div>
     <div class="stat-cell"><div class="stat-label">Save %</div><div class="stat-value grn">${svPct}%</div></div>
-    <div class="stat-cell"><div class="stat-label">Wide/Miss</div><div class="stat-value" style="color:#ffb347">${T.wide}</div></div>
-    <div class="stat-cell"><div class="stat-label">Rebounds Got</div><div class="stat-value" style="color:#60dfff">${T.rebound}</div></div>
-    <div class="stat-cell"><div class="stat-label">Rebound %</div><div class="stat-value" style="color:#60dfff">${T.shots>0?Math.round(T.rebound/T.shots*100):'0'}%</div></div>
+    <div class="stat-cell"><div class="stat-label">Wide / Miss</div><div class="stat-value" style="color:#ffb347">${state.teamDef.wide}</div></div>
+    <div class="stat-cell"><div class="stat-label">We Got Rebound</div><div class="stat-value" style="color:#60dfff">${state.teamDef.rebound}</div></div>
     <div class="stat-cell"><div class="stat-label">Our Poss</div><div class="stat-value grn">${fmt(state.poss.us)}</div></div>
     <div class="stat-cell"><div class="stat-label">Their Poss</div><div class="stat-value red">${fmt(state.poss.them)}</div></div>
     <div class="stat-cell"><div class="stat-label">Poss %</div><div class="stat-value grn">${possTotal>0?usPct:'—'}%</div></div>
@@ -1059,7 +1110,6 @@ function renderSummary() {
           <div><div class="stat-label">Saves</div><div class="stat-value pur">${p.stats.saves}</div></div>
           <div><div class="stat-label">Allow</div><div class="stat-value red">${p.stats.allowed}</div></div>
           <div><div class="stat-label">Sv%</div><div class="stat-value grn">${sv2}%</div></div>
-          <div><div class="stat-label">Wide</div><div class="stat-value" style="color:#ffb347;font-size:22px">${p.stats.wide||0}</div></div>
           <div><div class="stat-label">GK Time</div><div style="font-size:13px;color:var(--gray);font-weight:600;margin-top:4px">${fmt(p.posTime.goalie||0)}</div></div>
         </div>
       </div>`;
@@ -1107,8 +1157,6 @@ function renderSummary() {
       <td class="th-sep sn sp">${p.stats.saves}</td>
       <td class="sn sr">${p.stats.allowed}</td>
       <td class="sn">${psv!==null ? psv+'%' : '—'}</td>
-      <td class="th-sep sn" style="color:#ffb347">${p.stats.wide||0}</td>
-      <td class="sn" style="color:#60dfff">${p.stats.rebound||0}</td>
     </tr>`;
   }).join('');
 }
@@ -1116,11 +1164,12 @@ function renderSummary() {
 function resetAllStats() {
   if (!confirm('Reset ALL stats and position times for every player? This cannot be undone.')) return;
   state.players.forEach(p=>{
-    p.stats   = { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0, wide:0, rebound:0 };
+    p.stats   = { shots:0, goals:0, fo_w:0, fo_l:0, saves:0, allowed:0 };
     p.posTime = { attack:0, midfield:0, defense:0, goalie:0, bench:0 };
     p.activePos = null;
   });
-  state.poss = { us: 0, them: 0, current: null };
+  state.poss    = { us: 0, them: 0, current: null };
+  state.teamDef = { wide: 0, rebound: 0 };
   save(); updatePossUI(); renderSummary(); toast('Stats reset!');
 }
 
@@ -1135,7 +1184,7 @@ function exportCSV() {
 
   // ── Section 1: Player Stats ──
   rows.push(['PLAYER STATS']);
-  rows.push(['#','Name','Squad','Goals','Shots','Shot%','FO Wins','FO Losses','FO%','Saves','Allowed','Save%','Wide/Miss','Rebounds Got']);
+  rows.push(['#','Name','Squad','Goals','Shots','Shot%','FO Wins','FO Losses','FO%','Saves','Allowed','Save%']);
   sorted.forEach(p => {
     const sp  = p.stats.shots ? Math.round(p.stats.goals/p.stats.shots*100)+'%' : '0%';
     const fot = p.stats.fo_w+p.stats.fo_l;
@@ -1143,7 +1192,7 @@ function exportCSV() {
     const tf  = p.stats.saves+p.stats.allowed;
     const sv  = tf ? Math.round(p.stats.saves/tf*100)+'%' : '-';
     rows.push([p.num, p.name, sq(p.squadId), p.stats.goals, p.stats.shots, sp,
-               p.stats.fo_w, p.stats.fo_l, fop, p.stats.saves, p.stats.allowed, sv, p.stats.wide||0, p.stats.rebound||0]);
+               p.stats.fo_w, p.stats.fo_l, fop, p.stats.saves, p.stats.allowed, sv]);
   });
 
   // ── Section 2: Position Times ──
@@ -1169,15 +1218,21 @@ function exportCSV() {
     pt2?Math.round(poss2.them/pt2*100)+'%':'—',
     fmt(pt2)]);
 
-  // ── Section 4: Team Totals ──
+  // ── Section 4: Defensive Events (team-level) ──
+  rows.push([]);
+  rows.push(['AGAINST OUR GOAL']);
+  rows.push(['Wide / Miss','We Got Rebound']);
+  rows.push([state.teamDef.wide, state.teamDef.rebound]);
+
+  // ── Section 5: Team Totals ──
   rows.push([]);
   rows.push(['TEAM TOTALS']);
   const T=state.players.reduce((a,p)=>({
     shots:a.shots+p.stats.shots,goals:a.goals+p.stats.goals,
     fo_w:a.fo_w+p.stats.fo_w,fo_l:a.fo_l+p.stats.fo_l,
-    saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed,wide:a.wide+(p.stats.wide||0),rebound:a.rebound+(p.stats.rebound||0)
-  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0,wide:0,rebound:0});
-  rows.push(['Goals','Shots','Shot%','FO Wins','FO Losses','FO%','GK Saves','GK Allowed','Save%','Wide/Miss','Rebounds Got','Rebound%','Game Time','Players']);
+    saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed
+  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0});
+  rows.push(['Goals','Shots','Shot%','FO Wins','FO Losses','FO%','GK Saves','GK Allowed','Save%','Game Time','Players']);
   const tf2=T.saves+T.allowed;
   rows.push([T.goals,T.shots,
     T.shots?Math.round(T.goals/T.shots*100)+'%':'0%',
@@ -1185,8 +1240,6 @@ function exportCSV() {
     (T.fo_w+T.fo_l)?Math.round(T.fo_w/(T.fo_w+T.fo_l)*100)+'%':'0%',
     T.saves,T.allowed,
     tf2?Math.round(T.saves/tf2*100)+'%':'-',
-    T.wide, T.rebound,
-    T.shots?Math.round(T.rebound/T.shots*100)+'%':'-',
     fmt(clockSec), state.players.length]);
 
   // ── Build CSV string ──
@@ -1226,8 +1279,8 @@ function buildPrintReport() {
   const T=state.players.reduce((a,p)=>({
     shots:a.shots+p.stats.shots,goals:a.goals+p.stats.goals,
     fo_w:a.fo_w+p.stats.fo_w,fo_l:a.fo_l+p.stats.fo_l,
-    saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed,wide:a.wide+(p.stats.wide||0),rebound:a.rebound+(p.stats.rebound||0)
-  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0,wide:0,rebound:0});
+    saves:a.saves+p.stats.saves,allowed:a.allowed+p.stats.allowed
+  }),{shots:0,goals:0,fo_w:0,fo_l:0,saves:0,allowed:0});
   const tf=T.saves+T.allowed;
   const shPct=T.shots?Math.round(T.goals/T.shots*100):0;
   const foPct=(T.fo_w+T.fo_l)?Math.round(T.fo_w/(T.fo_w+T.fo_l)*100):0;
@@ -1314,13 +1367,19 @@ function buildPrintReport() {
         <div class="pr-total-cell"><div class="pr-total-label">Our Poss %</div><div class="pr-total-value gold">${(state.poss.us+state.poss.them)>0?Math.round(state.poss.us/(state.poss.us+state.poss.them)*100)+'%':'—'}</div></div>
       </div>
 
+      <div class="pr-section-title">Against Our Goal</div>
+      <div class="pr-totals" style="grid-template-columns:repeat(2,1fr)">
+        <div class="pr-total-cell"><div class="pr-total-label">Wide / Miss</div><div class="pr-total-value gold">${state.teamDef.wide}</div></div>
+        <div class="pr-total-cell"><div class="pr-total-label">We Got Rebound</div><div class="pr-total-value">${state.teamDef.rebound}</div></div>
+      </div>
+
       <div class="pr-section-title">Player Stats</div>
       <table class="pr-table">
         <thead><tr>
           <th>#</th><th>Name</th><th>Squad</th>
           <th class="c">Goals</th><th class="c">Shots</th><th class="c">Shot%</th>
           <th class="c">FO W</th><th class="c">FO L</th><th class="c">FO%</th>
-          <th class="c">Saves</th><th class="c">Allow</th><th class="c">Sv%</th><th class="c">Wide</th><th class="c">Reb</th>
+          <th class="c">Saves</th><th class="c">Allow</th><th class="c">Sv%</th>
         </tr></thead>
         <tbody>${statsRows}</tbody>
       </table>
@@ -1360,6 +1419,7 @@ function toast(msg) {
 syncSelects();
 renderRoster();
 updatePossUI();
+updateTeamDefUI();
 document.getElementById('main-modal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
 
 // ═══════════════════════════════════════════════════════════════
